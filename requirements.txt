@@ -13,3 +13,4 @@ aiohttp
 openai
 python-dotenv
 psutil
+setuptools
