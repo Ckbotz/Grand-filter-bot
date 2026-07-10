@@ -9,7 +9,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from database.ia_filterdb import Media, get_file_details, unpack_new_file_id, get_bad_files
 from database.users_chats_db import db
 from info import CHANNELS, ADMINS, AUTH_CHANNEL, LOG_CHANNEL, PICS, BATCH_FILE_CAPTION, CUSTOM_FILE_CAPTION, SUPPORT_CHAT, PROTECT_CONTENT, REQST_CHANNEL, SUPPORT_CHAT_ID, MAX_B_TN
-from utils import get_settings, get_size, is_subscribed, save_group_settings, temp
+from utils import get_settings, get_size, is_subscribed, get_not_subscribed_channels, save_group_settings, temp
 from database.connections_mdb import active_connection
 import re
 import json
@@ -52,18 +52,29 @@ async def start(client, message):
         )
         return
     if AUTH_CHANNEL and not await is_subscribed(client, message):
-        try:
-            invite_link = await client.create_chat_invite_link(int(AUTH_CHANNEL))
-        except ChatAdminRequired:
-            logger.error("Make sure Bot is admin in Forcesub channel")
+        not_joined_channels = await get_not_subscribed_channels(client, message.from_user.id)
+        btn = []
+        for channel_id in not_joined_channels:
+            try:
+                invite_link = await client.create_chat_invite_link(int(channel_id))
+            except ChatAdminRequired:
+                logger.error(f"Make sure Bot is admin in Forcesub channel {channel_id}")
+                continue
+            try:
+                chat = await client.get_chat(channel_id)
+                channel_title = chat.title
+            except Exception:
+                channel_title = "𝖴𝗉𝖽𝖺𝗍𝖾𝗌 𝖢𝗁𝖺𝗇𝗇𝖾𝗅"
+            btn.append(
+                [
+                    InlineKeyboardButton(
+                        f"🤖 𝖩𝗈𝗂𝗇 {channel_title} 🤖", url=invite_link.invite_link
+                    )
+                ]
+            )
+        if not btn:
+            logger.error("Make sure Bot is admin in all Forcesub channels")
             return
-        btn = [
-            [
-                InlineKeyboardButton(
-                    "🤖 𝖩𝗈𝗂𝗇 𝖴𝗉𝖽𝖺𝗍𝖾𝗌 𝖢𝗁𝖺𝗇𝗇𝖾𝗅 🤖", url=invite_link.invite_link
-                )
-            ]
-        ]
         if message.command[1] != "subscribe" or message.command[1] != "send_all":
             try:
                 kk, file_id = message.command[1].split("_", 1)
