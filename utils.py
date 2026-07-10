@@ -43,17 +43,39 @@ class temp(object):
     FILES_IDS = {}
 
 async def is_subscribed(bot, query):
-    try:
-        user = await bot.get_chat_member(AUTH_CHANNEL, query.from_user.id)
-    except UserNotParticipant:
-        pass
-    except Exception as e:
-        logger.exception(e)
-    else:
-        if user.status != enums.ChatMemberStatus.BANNED:
-            return True
+    if not AUTH_CHANNEL:
+        return True
+    for channel_id in AUTH_CHANNEL:
+        try:
+            user = await bot.get_chat_member(channel_id, query.from_user.id)
+        except UserNotParticipant:
+            return False
+        except Exception as e:
+            logger.exception(e)
+            return False
+        else:
+            if user.status == enums.ChatMemberStatus.BANNED:
+                return False
+    return True
 
-    return False
+
+async def get_not_subscribed_channels(bot, user_id):
+    """Returns the list of AUTH_CHANNEL ids that the given user has not joined (or is banned in)."""
+    not_joined = []
+    if not AUTH_CHANNEL:
+        return not_joined
+    for channel_id in AUTH_CHANNEL:
+        try:
+            user = await bot.get_chat_member(channel_id, user_id)
+        except UserNotParticipant:
+            not_joined.append(channel_id)
+        except Exception as e:
+            logger.exception(e)
+            not_joined.append(channel_id)
+        else:
+            if user.status == enums.ChatMemberStatus.BANNED:
+                not_joined.append(channel_id)
+    return not_joined
 
 async def get_poster(query, bulk=False, id=False, file=None):
     if not id:
