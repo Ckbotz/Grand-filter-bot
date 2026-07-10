@@ -228,6 +228,51 @@ def get_size(size):
         size /= 1024.0
     return "%.2f %s" % (size, units[i])
 
+def extract_tag(file_name: str):
+    file_name_lower = file_name.lower()
+    file_name_norm = re.sub(r'[\._\-]+', ' ', file_name_lower)
+
+    patterns = [
+        r'\b(?:s|season)\s*0*(\d{1,2})\s*(?:e|ep|episode)\s*0*(\d{1,2})\b',
+        r'\b(\d{1,2})\s*(?:x|ep|episode)\s*0*(\d{1,2})\b',
+        r'\bs0*(\d{1,2})(?:e|ep)0*(\d{1,2})\b',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, file_name_norm)
+        if match:
+            season = int(match.group(1))
+            episode = int(match.group(2))
+            return match.group(0), f"S{season:02d}E{episode:02d} •"
+
+    season_match = re.search(r'\b(?:s|season)\s*0*(\d{1,2})\b', file_name_norm)
+    if season_match:
+        season = int(season_match.group(1))
+        return season_match.group(0), f"S{season:02d} •"
+
+    episode_match = re.search(r'\b(?:ep|e|episode)\s*0*(\d{1,3})\b', file_name_norm)
+    if episode_match:
+        episode = int(episode_match.group(1))
+        return episode_match.group(0), f"E{episode:02d} •"
+
+    quality_match = re.search(r'\b(2160p|1080p|720p|540p|480p|360p|240p|4k)\b', file_name_norm)
+    if quality_match:
+        return quality_match.group(0), f"{quality_match.group(1)} •"
+
+    return None, ""
+
+def clean_filename(file_name):
+    file_name = re.sub(r'http\S+', '', re.sub(r'@\w+|#\w+', '', file_name))
+    file_name = re.sub(r"(_|\-|\.|\+)", " ", file_name)
+    file_name = re.sub(r"[(){}\[\]:;\-!]", "", file_name)
+
+    matched_text, tag = extract_tag(file_name)
+    if matched_text:
+        # remove case-insensitively, since matched_text came from the lowercased copy
+        file_name = re.sub(re.escape(matched_text), '', file_name, flags=re.IGNORECASE, count=1)
+
+    file_name = re.sub(r'\s+', ' ', file_name).strip()
+    return file_name, tag
+
 def split_list(l, n):
     for i in range(0, len(l), n):
         yield l[i:i + n]  
